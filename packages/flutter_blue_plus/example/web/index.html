@@ -35,6 +35,18 @@
 <body>
   <script>
     (function () {
+      if (typeof WebAssembly.compileStreaming !== 'function') {
+        WebAssembly.compileStreaming = function (source) {
+          return Promise.resolve(source)
+            .then(function (response) {
+              return response.arrayBuffer();
+            })
+            .then(function (bytes) {
+              return WebAssembly.compile(bytes);
+            });
+        };
+      }
+
       function showError(text) {
         var box = document.getElementById('debug-errors');
         if (!box) {
