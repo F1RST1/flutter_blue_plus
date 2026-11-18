@@ -90,11 +90,19 @@ class _ScanScreenState extends State<ScanScreen> {
   }
 
   void onConnectPressed(BluetoothDevice device) {
-    device.connectAndUpdateStream().catchError((e) {
-      Snackbar.show(ABC.c, prettyException("Connect Error:", e), success: false);
-    });
+    print('[DIAG][ScanScreen] device selected; hasName=${device.platformName.isNotEmpty}');
+    unawaited(device.connectAndUpdateStream().then<void>(
+      (_) {
+        print('[DIAG][ScanScreen] background connect completed');
+      },
+      onError: (Object e, StackTrace backtrace) {
+        print('[DIAG][ScanScreen] background connect failed: $e\n$backtrace');
+        Snackbar.show(ABC.c, prettyException("Connect Error:", e), success: false);
+      },
+    ));
     MaterialPageRoute route = MaterialPageRoute(
         builder: (context) => DeviceScreen(device: device), settings: RouteSettings(name: '/DeviceScreen'));
+    print('[DIAG][ScanScreen] pushing DeviceScreen route');
     Navigator.of(context).push(route);
   }
 

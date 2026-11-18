@@ -99,6 +99,7 @@ final class FlutterBluePlusWeb extends FlutterBluePlusPlatform {
   Future<bool> connect(
     BmConnectRequest request,
   ) async {
+    print('[DIAG][WebBLE] connect started');
     final device = _devices[request.remoteId];
 
     if (device == null) {
@@ -115,7 +116,14 @@ final class FlutterBluePlusWeb extends FlutterBluePlusPlatform {
       );
     }
 
-    await gatt.connect().toDart;
+    print('[DIAG][WebBLE] calling GATT connect; connectedBefore=${gatt.connected}');
+    try {
+      await gatt.connect().toDart;
+    } catch (e, stackTrace) {
+      print('[DIAG][WebBLE] GATT connect failed: $e\n$stackTrace');
+      rethrow;
+    }
+    print('[DIAG][WebBLE] GATT connect resolved; connectedAfter=${gatt.connected}');
 
     _onConnectionStateChangedController.add(
       BmConnectionStateResponse(
@@ -126,6 +134,7 @@ final class FlutterBluePlusWeb extends FlutterBluePlusPlatform {
       ),
     );
 
+    print('[DIAG][WebBLE] connected state emitted');
     return true;
   }
 
@@ -170,6 +179,7 @@ final class FlutterBluePlusWeb extends FlutterBluePlusPlatform {
   Future<bool> discoverServices(
     BmDiscoverServicesRequest request,
   ) async {
+    var stage = 'lookup device';
     try {
       final device = _devices[request.remoteId];
 
@@ -187,6 +197,8 @@ final class FlutterBluePlusWeb extends FlutterBluePlusPlatform {
         );
       }
 
+      print('[DIAG][WebBLE] discoverServices started; registered=${_devices.containsKey(request.remoteId)}, '
+          'gattConnected=${gatt.connected}');
       final services = <BmBluetoothService>[];
 
       // ensure dev map exists
@@ -196,7 +208,11 @@ final class FlutterBluePlusWeb extends FlutterBluePlusPlatform {
       devMap.clear();
 
       // Enumerate services and characteristics; build cache synchronously from discovery results
+      stage = 'getPrimaryServices';
+      print('[DIAG][WebBLE] calling getPrimaryServices');
       final primaryServices = (await gatt.getPrimaryServices().toDart).toDart;
+      print('[DIAG][WebBLE] getPrimaryServices succeeded; count=${primaryServices.length}, '
+          'uuids=${primaryServices.map((service) => service.uuid).join(',')}');
       for (final s in primaryServices) {
         final characteristics = <BmBluetoothCharacteristic>[];
 
@@ -206,15 +222,22 @@ final class FlutterBluePlusWeb extends FlutterBluePlusPlatform {
         });
 
         // pull all chars and cache them grouped by char.uuid (order matters and defines instanceId)
+        stage = 'getCharacteristics service=${s.uuid}';
+        print('[DIAG][WebBLE] calling getCharacteristics; service=${s.uuid}');
         final chars = (await s.getCharacteristics().toDart).toDart;
+        print('[DIAG][WebBLE] getCharacteristics succeeded; service=${s.uuid}, count=${chars.length}, '
+            'uuids=${chars.map((characteristic) => characteristic.uuid).join(',')}');
 
         charsForService.addAll(chars);
 
         for (final c in chars) {
           final descriptors = <BmBluetoothDescriptor>[];
 
+          stage = 'getDescriptors service=${s.uuid} characteristic=${c.uuid}';
           try {
+            print('[DIAG][WebBLE] calling getDescriptors; service=${s.uuid}, characteristic=${c.uuid}');
             final descs = (await c.getDescriptors().toDart).toDart;
+            print('[DIAG][WebBLE] getDescriptors succeeded; count=${descs.length}');
             for (final d in descs) {
               descriptors.add(
                 BmBluetoothDescriptor(
@@ -227,8 +250,9 @@ final class FlutterBluePlusWeb extends FlutterBluePlusPlatform {
                 ),
               );
             }
-          } catch (e) {
-            // ignore errors when getting characteristics descriptors
+          } catch (e, stackTrace) {
+            print('[DIAG][WebBLE] getDescriptors failed; service=${s.uuid}, '
+                'characteristic=${c.uuid}: $e\n$stackTrace');
           }
 
           characteristics.add(
@@ -275,8 +299,10 @@ final class FlutterBluePlusWeb extends FlutterBluePlusPlatform {
         ),
       );
 
+      print('[DIAG][WebBLE] discoverServices succeeded; services=${services.length}');
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[DIAG][WebBLE] discoverServices failed at $stage: $e\n$stackTrace');
       _onDiscoveredServicesController.add(
         BmDiscoverServicesResult(
           remoteId: request.remoteId,
@@ -296,8 +322,11 @@ final class FlutterBluePlusWeb extends FlutterBluePlusPlatform {
     BmIsSupportedRequest request,
   ) async {
     try {
-      return (await window.navigator.bluetooth.getAvailability().toDart).toDart;
-    } catch (e) {
+      final available = (await window.navigator.bluetooth.getAvailability().toDart).toDart;
+      print('[DIAG][WebBLE] getAvailability=$available');
+      return available;
+    } catch (e, stackTrace) {
+      print('[DIAG][WebBLE] getAvailability failed: $e\n$stackTrace');
       return false; // https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API#browser_compatibility
     }
   }

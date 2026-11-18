@@ -35,14 +35,23 @@ class _DeviceScreenState extends State<DeviceScreen> {
   @override
   void initState() {
     super.initState();
+    print('[DIAG][DeviceScreen] init; device has name=${widget.device.platformName.isNotEmpty}');
 
     _connectionStateSubscription = widget.device.connectionState.listen((state) async {
+      print('[DIAG][DeviceScreen] connectionState=$state');
       _connectionState = state;
       if (state == BluetoothConnectionState.connected) {
         _services = []; // must rediscover services
       }
       if (state == BluetoothConnectionState.connected && _rssi == null) {
-        _rssi = await widget.device.readRssi();
+        print('[DIAG][DeviceScreen] readRssi started');
+        try {
+          _rssi = await widget.device.readRssi();
+          print('[DIAG][DeviceScreen] readRssi succeeded: $_rssi');
+        } catch (e, backtrace) {
+          print('[DIAG][DeviceScreen] readRssi failed: $e\n$backtrace');
+          rethrow;
+        }
       }
       if (mounted) {
         setState(() {});
@@ -57,6 +66,7 @@ class _DeviceScreenState extends State<DeviceScreen> {
     });
 
     _isConnectingSubscription = widget.device.isConnecting.listen((value) {
+      print('[DIAG][DeviceScreen] isConnecting=$value');
       _isConnecting = value;
       if (mounted) {
         setState(() {});
@@ -64,6 +74,7 @@ class _DeviceScreenState extends State<DeviceScreen> {
     });
 
     _isDisconnectingSubscription = widget.device.isDisconnecting.listen((value) {
+      print('[DIAG][DeviceScreen] isDisconnecting=$value');
       _isDisconnecting = value;
       if (mounted) {
         setState(() {});
@@ -73,6 +84,7 @@ class _DeviceScreenState extends State<DeviceScreen> {
 
   @override
   void dispose() {
+    print('[DIAG][DeviceScreen] dispose');
     _connectionStateSubscription.cancel();
     _mtuSubscription.cancel();
     _isConnectingSubscription.cancel();
@@ -85,10 +97,13 @@ class _DeviceScreenState extends State<DeviceScreen> {
   }
 
   Future onConnectPressed() async {
+    print('[DIAG][DeviceScreen] connect pressed');
     try {
       await widget.device.connectAndUpdateStream();
+      print('[DIAG][DeviceScreen] connect succeeded');
       Snackbar.show(ABC.c, "Connect: Success", success: true);
     } catch (e, backtrace) {
+      print('[DIAG][DeviceScreen] connect failed: $e\n$backtrace');
       if (e is FlutterBluePlusException && e.code == FbpErrorCode.connectionCanceled.index) {
         // ignore connections canceled by the user
       } else {
@@ -121,6 +136,7 @@ class _DeviceScreenState extends State<DeviceScreen> {
   }
 
   Future onDiscoverServicesPressed() async {
+    print('[DIAG][DeviceScreen] Get Services pressed; connected=$isConnected');
     if (mounted) {
       setState(() {
         _isDiscoveringServices = true;
@@ -128,16 +144,21 @@ class _DeviceScreenState extends State<DeviceScreen> {
     }
     try {
       _services = await widget.device.discoverServices();
+      print('[DIAG][DeviceScreen] service discovery succeeded; services=${_services.length}, '
+          'characteristics=${_services.fold<int>(0, (total, service) => total + service.characteristics.length)}');
       Snackbar.show(ABC.c, "Discover Services: Success", success: true);
     } catch (e, backtrace) {
+      print('[DIAG][DeviceScreen] service discovery failed: $e\n$backtrace');
       Snackbar.show(ABC.c, prettyException("Discover Services Error:", e), success: false);
       print(e);
       print("backtrace: $backtrace");
-    }
-    if (mounted) {
-      setState(() {
-        _isDiscoveringServices = false;
-      });
+    } finally {
+      print('[DIAG][DeviceScreen] Get Services finished; mounted=$mounted');
+      if (mounted) {
+        setState(() {
+          _isDiscoveringServices = false;
+        });
+      }
     }
   }
 

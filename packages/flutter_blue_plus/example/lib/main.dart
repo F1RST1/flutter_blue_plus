@@ -3,6 +3,7 @@
 // BSD-style license that can be found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -11,6 +12,14 @@ import 'screens/bluetooth_off_screen.dart';
 import 'screens/scan_screen.dart';
 
 void main() {
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    print('[DIAG][FlutterError] ${details.exceptionAsString()}\n${details.stack ?? ''}');
+  };
+  PlatformDispatcher.instance.onError = (error, stackTrace) {
+    print('[DIAG][PlatformDispatcher] uncaught error: $error\n$stackTrace');
+    return false;
+  };
   FlutterBluePlus.setLogLevel(LogLevel.verbose, color: true);
   runApp(const FlutterBlueApp());
 }
@@ -35,6 +44,7 @@ class _FlutterBlueAppState extends State<FlutterBlueApp> {
   void initState() {
     super.initState();
     _adapterStateStateSubscription = FlutterBluePlus.adapterState.listen((state) {
+      print('[DIAG][App] adapterState=$state');
       _adapterState = state;
       if (mounted) {
         setState(() {});
@@ -72,11 +82,14 @@ class BluetoothAdapterStateObserver extends NavigatorObserver {
   @override
   void didPush(Route route, Route? previousRoute) {
     super.didPush(route, previousRoute);
+    print('[DIAG][Navigation] didPush route=${route.settings.name}, previous=${previousRoute?.settings.name}');
     if (route.settings.name == '/DeviceScreen') {
       // Start listening to Bluetooth state changes when a new route is pushed
       _adapterStateSubscription ??= FlutterBluePlus.adapterState.listen((state) {
+        print('[DIAG][Navigation] DeviceScreen adapterState=$state');
         if (state != BluetoothAdapterState.on) {
           // Pop the current route if Bluetooth is off
+          print('[DIAG][Navigation] popping DeviceScreen because adapterState=$state');
           navigator?.pop();
         }
       });
@@ -86,6 +99,7 @@ class BluetoothAdapterStateObserver extends NavigatorObserver {
   @override
   void didPop(Route route, Route? previousRoute) {
     super.didPop(route, previousRoute);
+    print('[DIAG][Navigation] didPop route=${route.settings.name}, previous=${previousRoute?.settings.name}');
     // Cancel the subscription when the route is popped
     _adapterStateSubscription?.cancel();
     _adapterStateSubscription = null;

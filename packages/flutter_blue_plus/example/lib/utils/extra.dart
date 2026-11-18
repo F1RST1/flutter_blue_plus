@@ -31,11 +31,17 @@ extension Extra on BluetoothDevice {
 
   // connect & update stream
   Future<void> connectAndUpdateStream() async {
+    print('[DIAG][Connect] connectAndUpdateStream started; alreadyConnected=$isConnected');
     _cstream.add(true);
     try {
       await connect(license: License.nonprofit, mtu: null);
+      print('[DIAG][Connect] BluetoothDevice.connect succeeded; connected=$isConnected');
+    } catch (e, stackTrace) {
+      print('[DIAG][Connect] BluetoothDevice.connect failed: $e\n$stackTrace');
+      rethrow;
     } finally {
       _cstream.add(false);
+      print('[DIAG][Connect] connectAndUpdateStream finished; connected=$isConnected');
     }
   }
 

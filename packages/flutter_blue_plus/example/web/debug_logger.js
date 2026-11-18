@@ -100,6 +100,10 @@
     record('unhandled rejection', formatValue(event.reason));
   });
 
+  window.addEventListener('pagehide', function (event) {
+    record('lifecycle', 'pagehide; persisted=' + event.persisted);
+  });
+
   function renderLogViewer() {
     document.title = 'Flutter Blue Plus logs';
     document.body.textContent = '';
