@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
@@ -43,15 +44,16 @@ class _DeviceScreenState extends State<DeviceScreen> {
       if (state == BluetoothConnectionState.connected) {
         _services = []; // must rediscover services
       }
-      if (state == BluetoothConnectionState.connected && _rssi == null) {
+      if (state == BluetoothConnectionState.connected && _rssi == null && !kIsWeb) {
         print('[DIAG][DeviceScreen] readRssi started');
         try {
           _rssi = await widget.device.readRssi();
           print('[DIAG][DeviceScreen] readRssi succeeded: $_rssi');
         } catch (e, backtrace) {
           print('[DIAG][DeviceScreen] readRssi failed: $e\n$backtrace');
-          rethrow;
         }
+      } else if (state == BluetoothConnectionState.connected && kIsWeb) {
+        print('[DIAG][DeviceScreen] skipping readRssi; Web Bluetooth does not expose RSSI');
       }
       if (mounted) {
         setState(() {});
