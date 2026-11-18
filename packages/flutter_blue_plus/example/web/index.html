@@ -33,6 +33,33 @@
   <link rel="manifest" href="manifest.json">
 </head>
 <body>
+  <script>
+    (function () {
+      function showError(text) {
+        var box = document.getElementById('debug-errors');
+        if (!box) {
+          box = document.createElement('pre');
+          box.id = 'debug-errors';
+          box.style.cssText =
+            'position:fixed;inset:0;z-index:2147483647;overflow:auto;' +
+            'margin:0;padding:12px;background:#fff;color:#b00020;' +
+            'font:14px monospace;white-space:pre-wrap;';
+          document.body.appendChild(box);
+        }
+        box.textContent += text + '\n\n';
+      }
+
+      window.addEventListener('error', function (e) {
+        showError('JS/resource error: ' +
+          (e.message || (e.target && (e.target.src || e.target.href)) || 'unknown') +
+          (e.filename ? '\n' + e.filename + ':' + e.lineno : ''));
+      }, true);
+
+      window.addEventListener('unhandledrejection', function (e) {
+        showError('Promise rejection: ' + String(e.reason));
+      });
+    })();
+  </script>
   <script src="flutter_bootstrap.js" async></script>
 </body>
 </html>
